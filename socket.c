@@ -34,7 +34,7 @@ void *clientThread(void *arg)
     // strcpy(message, "Hello");
     strcpy(message, "{\"requestId\":\"module1-1xsx\",\"type\":1,\"moduleId\":\"module11\",\"version\":\"1.0.0\"}\n");
     numBytesSent = send(clientSocket, message, strlen(message), 0);
-    if (send(clientSocket, message, strlen(message), 0) < 0)
+    if (numBytesSent < 0)
     {
         printf("Send failed\n");
     }
