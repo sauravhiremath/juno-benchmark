@@ -8,17 +8,17 @@
 #include <unistd.h> // for close
 #include <pthread.h>
 #include <errno.h>
+#include<time.h>
 
 #define BUFFER_SIZE 256
 char buf[BUFFER_SIZE] = {0};
+char send_buf[BUFFER_SIZE] = {0};
 size_t buf_idx = 0;
 
 void *clientThread(void *arg)
 {
-    printf("In thread\n");
-    char message[2000];
-    char buffer[4096];
     int clientSocket;
+    clock_t t;
     ssize_t numBytesSent = 0;
     struct sockaddr_in serverAddr;
     socklen_t addr_size;
@@ -34,16 +34,19 @@ void *clientThread(void *arg)
     memset(serverAddr.sin_zero, '\0', sizeof serverAddr.sin_zero);
     //Connect the socket to the server using the address
     addr_size = sizeof serverAddr;
+
+    // #################################################################################
+
+    t = clock();
     connect(clientSocket, (struct sockaddr *)&serverAddr, addr_size);
-    printf("connected\n");
     // Send initialisation request
-    strcpy(message, "{\"requestId\":\"module1-1234567890\",\"type\":1,\"moduleId\":\"module11\",\"version\":\"1.0.0\"}\n");
-    numBytesSent = send(clientSocket, message, strlen(message), 0);
+    strcpy(send_buf, "{\"requestId\":\"module1-1234567890\",\"type\":1,\"moduleId\":\"module11\",\"version\":\"1.0.0\"}\n");
+    numBytesSent = send(clientSocket, send_buf, strlen(send_buf), 0);
     if (numBytesSent < 0)
     {
         printf("Send failed\n");
     }
-    printf("sent message size %d \n", numBytesSent);
+    // printf("sent message size %d \n", numBytesSent);
 
     //Read the message from the server into the buffer
     while (buf_idx < BUFFER_SIZE && 1 == read(clientSocket, &buf[buf_idx], 1))
@@ -57,8 +60,13 @@ void *clientThread(void *arg)
     }
 
     //Print the received message
-    printf("Data received: %s\n", buf);
+    // printf("Data received: %s\n", buf);
     close(clientSocket);
+    t = clock() - t;
+    double time_taken = ((double)t)/CLOCKS_PER_SEC;
+    printf("%f \n", time_taken);
+
+    // ##################################################################################
     pthread_exit(NULL);
 }
 

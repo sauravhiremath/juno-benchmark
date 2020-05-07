@@ -13,5 +13,8 @@ tcpkali -em "{\r\n    \"requestId\": \"module1-1234567890\",\r\n    \"type\": 7,
 # Declare function
 tcpkali -em "{\r\n    \"requestId\": \"module1-1234567890\",\r\n    \"type\": 9,\r\n    \"function\": \"passwordChanged\"\r\n}\n" 127.0.0.1:4000 -T 1000 -c 32
 
+# Function call with regex expansion
+tcpkali -em "{\"requestId\": \"module{re [a-z0-9]+}-{re [a-z0-9]{10}+}\",\"type\": 3,\"function\": \"module2.calculateSum\",\"data\": {\"values\": [ 1, 2, 3, 4,5 ]}}\n" 127.0.0.1:4000 -T 1000 -c 512 --latency-connect --latency-marker ":0" --latency-first-byte
 
-
+# Function initialise with regex expansion
+tcpkali -em "{\"requestId\":\"module{re [a-z0-9]+}-{re [a-z0-9]{10}+}\",\"type\":1,\"moduleId\":\"module{re [a-z0-9]{10}+}\",\"version\":\"1.0.0\"}\n" 127.0.0.1:4000 -T 1000 -c 32 --latency-connect --latency-marker ":2" --latency-first-byte
