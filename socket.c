@@ -37,7 +37,7 @@ void *clientThread(void *arg)
     connect(clientSocket, (struct sockaddr *)&serverAddr, addr_size);
     printf("connected\n");
     // Send initialisation request
-    strcpy(message, "{\"requestId\":\"module1-1xsx\",\"type\":1,\"moduleId\":\"module11\",\"version\":\"1.0.0\"}\n");
+    strcpy(message, "{\"requestId\":\"module1-1234567890\",\"type\":1,\"moduleId\":\"module11\",\"version\":\"1.0.0\"}\n");
     numBytesSent = send(clientSocket, message, strlen(message), 0);
     if (numBytesSent < 0)
     {
