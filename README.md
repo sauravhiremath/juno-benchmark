@@ -1,6 +1,7 @@
 # juno-benchmark
 
-Benchmarking tool to measure request-response for juno. Supports multi-threading
+Perform load testing to measure request-response latency for [juno](https://github.com/bytesonus/juno). Supports multi-threading <br>
+[Juno Communication Protocols here](https://github.com/bytesonus/juno/blob/develop/docs/COMMUNICATION-PROTOCOL.md)
 
 ### Tested on Linux
 ```bash
