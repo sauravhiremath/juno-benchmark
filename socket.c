@@ -7,6 +7,11 @@
 #include <fcntl.h>  // for open
 #include <unistd.h> // for close
 #include <pthread.h>
+#include <errno.h>
+
+#define BUFFER_SIZE 256
+char buf[BUFFER_SIZE] = {0};
+size_t buf_idx = 0;
 
 void *clientThread(void *arg)
 {
@@ -31,7 +36,7 @@ void *clientThread(void *arg)
     addr_size = sizeof serverAddr;
     connect(clientSocket, (struct sockaddr *)&serverAddr, addr_size);
     printf("connected\n");
-    // strcpy(message, "Hello");
+    // Send initialisation request
     strcpy(message, "{\"requestId\":\"module1-1xsx\",\"type\":1,\"moduleId\":\"module11\",\"version\":\"1.0.0\"}\n");
     numBytesSent = send(clientSocket, message, strlen(message), 0);
     if (numBytesSent < 0)
@@ -39,23 +44,29 @@ void *clientThread(void *arg)
         printf("Send failed\n");
     }
     printf("sent message size %d \n", numBytesSent);
+
     //Read the message from the server into the buffer
-    // printf("%s\n",ret);
-    // numBytesRecv = recv(clientSocket, buffer, strlen(buffer));
-    if (read(clientSocket, buffer, strlen(buffer)) < 0)
+    while (buf_idx < BUFFER_SIZE && 1 == read(clientSocket, &buf[buf_idx], 1))
     {
-        printf("Receive failed\n");
+        if (buf_idx > 0 &&
+            '\n' == buf[buf_idx])
+        {
+            break;
+        }
+        buf_idx++;
     }
+
     //Print the received message
-    printf("Data received: %s\n", buffer);
+    printf("Data received: %s\n", buf);
     close(clientSocket);
     pthread_exit(NULL);
 }
+
 int main()
 {
     int i = 0;
-    pthread_t tid[2];
-    while (i < 1)
+    pthread_t tid[51];
+    while (i < 50)
     {
         if (pthread_create(&tid[i], NULL, clientThread, NULL) != 0)
             printf("Failed to create thread\n");
