@@ -16,6 +16,25 @@ type job struct {
 	throughput time.Duration
 }
 
+func spawnConn() {
+	// Create a go routine to spawn connections to server
+}
+
+func initReq() {
+	// Send module initialization requests for each conn
+}
+
+func tCPConnWrite() {
+
+}
+
+func tCPConnRead() {
+
+}
+
+func runtimeStats() {
+	// Display info on throughput and other memStats
+}
 func doWork(id int, j job) {
 	fmt.Printf("worker%d: started %s, working for %f seconds\n", id, j.requestID, j.throughput.Seconds())
 }
