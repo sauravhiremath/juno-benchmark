@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"strconv"
 	"sync"
 	"time"
 
 	uuid "github.com/satori/go.uuid"
+	"github.com/urfave/cli/v2"
 )
 
 type initMsg struct {
@@ -60,7 +62,6 @@ func registerModule(c *net.Conn, sub *sync.WaitGroup) {
 func callFunction(c *net.Conn, sub *sync.WaitGroup) {
 	// Send call Function request to juno
 	// Create unique requestID
-	// UnMarshal the response to check if it was successfull, (data == "200 OK")
 	// If not debug then do not store message use io.Copy(ioutil.Discard) instead
 	defer sub.Done()
 
@@ -74,20 +75,20 @@ func callFunction(c *net.Conn, sub *sync.WaitGroup) {
 	})
 	start := time.Now()
 	fmt.Fprintf(*c, string(msg)+"\n")
-	message, err := bufio.NewReader(*c).ReadString('\n')
+	_, err := bufio.NewReader(*c).ReadString('\n')
 	if err != nil {
 		log.Panic("[ERROR] Message recieve failed: ", err)
 		return
 	}
-	log.Println(time.Since(start), message)
+	log.Println(time.Since(start))
 	return
 }
 
-func initialize(c chan net.Conn, n int) {
+func initialize(c chan net.Conn, ADDR string, n int) {
 	var sub sync.WaitGroup
 
 	for i := 0; i < n; i++ {
-		conn, _ := net.Dial("tcp4", "127.0.0.1:4000")
+		conn, _ := net.Dial("tcp4", ADDR)
 		c <- conn
 		sub.Add(1)
 		go registerModule(&conn, &sub)
@@ -95,11 +96,12 @@ func initialize(c chan net.Conn, n int) {
 	sub.Wait()
 }
 
-func runJobs(c *net.Conn, n int, main *sync.WaitGroup) {
+func runJobs(c *net.Conn, n int64, main *sync.WaitGroup) {
 	defer main.Done()
 
 	var sub sync.WaitGroup
-	for i := 0; i < n; i++ {
+	var i int64 = 0
+	for ; i < n; i++ {
 		sub.Add(1)
 		go callFunction(c, &sub)
 	}
@@ -113,16 +115,11 @@ func runtimeStats() {
 	// Display info on throughput and other memStats
 }
 
-func main() {
-	// ################################# CHANGE CONNECTIONS AND JOBS HERE #########################################
-	var CONN int = 100
-	var JOBS int = 100
-	// ############################################################################################################
-
+func start(ADDR string, CONN int64, JOBS int64) {
 	var main sync.WaitGroup
 	conns := make(chan net.Conn, CONN)
 
-	initialize(conns, cap(conns))
+	initialize(conns, ADDR, cap(conns))
 
 	for i := 0; i < cap(conns); i++ {
 		conn, more := <-conns
@@ -138,4 +135,56 @@ func main() {
 	main.Wait()
 
 	log.Printf("[DEBUG] Program ended gracefully...\n")
+}
+
+func main() {
+	// ################################# CHANGE CONNECTIONS AND JOBS NUMBER HERE ##################################
+
+	var (
+		ADDR string
+		CONN int64
+		JOBS int64
+	)
+
+	// ############################################################################################################
+
+	app := cli.NewApp()
+	app.Name = "juno-benchmark"
+	app.Usage = "Benchmark throughputs for juno. Written in Go"
+	app.Description = "Benchmark throughputs for juno written in Go"
+	app.EnableBashCompletion = true
+	app.Flags = []cli.Flag{
+		&cli.StringFlag{
+			Name:        "socket-address",
+			Aliases:     []string{"s"},
+			Usage:       "Tcp v4 address to establish tcp connection",
+			Required:    true,
+			Destination: &ADDR,
+		},
+		&cli.Int64Flag{
+			Name:        "connections",
+			Aliases:     []string{"c"},
+			Value:       1,
+			Usage:       "Connections to keep open to the destination",
+			Required:    true,
+			Destination: &CONN,
+		},
+		&cli.Int64Flag{
+			Name:        "rate",
+			Aliases:     []string{"r"},
+			Value:       1,
+			Usage:       "Messages per second to send in a connection",
+			Required:    true,
+			Destination: &JOBS,
+		},
+	}
+	app.Action = func(c *cli.Context) error {
+		start(ADDR, CONN, JOBS)
+		return nil
+	}
+
+	err := app.Run(os.Args)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
