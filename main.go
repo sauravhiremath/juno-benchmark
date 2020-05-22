@@ -5,6 +5,7 @@ import (
 	"juno-benchmark/src"
 	"log"
 	"os"
+	"time"
 
 	"github.com/urfave/cli/v2"
 )
@@ -15,6 +16,8 @@ func main() {
 		CONN int64
 		JOBS int64
 	)
+
+	TTL, _ := time.ParseDuration("10s")
 
 	app := cli.NewApp()
 	app.Name = "juno-benchmark"
@@ -45,9 +48,18 @@ func main() {
 			Required:    true,
 			Destination: &JOBS,
 		},
+		&cli.DurationFlag{
+			Name:        "time",
+			Aliases:     []string{"t"},
+			DefaultText: "10s",
+			Usage:       "Exit after the specified amount of time. Valid time units are ns, us (or µs), ms, s, m, h",
+			Required:    true,
+			Destination: &TTL,
+		},
 	}
 	app.Action = func(c *cli.Context) error {
-		src.Start(ADDR, CONN, JOBS)
+		src.Start(ADDR, CONN, JOBS, TTL)
+		go src.GracefulAbort()
 		return nil
 	}
 
@@ -55,4 +67,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	go src.GracefulAbort()
+	forever := make(chan int)
+	<-forever
 }

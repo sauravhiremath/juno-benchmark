@@ -7,12 +7,17 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
+	"os/signal"
 	"strconv"
 	"sync"
+	"syscall"
 	"time"
 
 	uuid "github.com/satori/go.uuid"
 )
+
+var conns chan net.Conn
 
 /*
 
@@ -85,12 +90,12 @@ All connections are spawned concurrently and the function
 exists on successfully registration of spawned connections
 
 */
-func QueueConns(c chan net.Conn, ADDR string, n int) {
+func QueueConns(ADDR string, n int) {
 	var sub sync.WaitGroup
 
 	for i := 0; i < n; i++ {
 		conn, _ := net.Dial("tcp4", ADDR)
-		c <- conn
+		conns <- conn
 		sub.Add(1)
 		go RegisterModule(&conn, &sub)
 	}
@@ -105,19 +110,32 @@ All messages are spawned concurrently and the function
 exists on getting successfull responses from all transmissions sent
 
 */
-func QueueJobs(c *net.Conn, n int64, main *sync.WaitGroup) {
+func QueueJobs(c *net.Conn, n int64, TTL time.Duration, main *sync.WaitGroup) {
 	defer main.Done()
 
 	var sub sync.WaitGroup
-	var i int64 = 0
-	for ; i < n; i++ {
-		sub.Add(1)
-		go SendMessage(c, &sub)
-	}
-	sub.Wait()
+	done := make(chan bool)
 
-	// log.Println("[DEBUG] Closing connection...")
-	(*c).Close()
+	ticker := time.NewTicker(time.Duration(int64(time.Second) / n))
+	defer ticker.Stop()
+
+	go func() {
+		time.Sleep(TTL)
+		done <- true
+	}()
+	for {
+		select {
+		case <-done:
+			ticker.Stop()
+			sub.Wait()
+			(*c).Close()
+			log.Println("[DEBUG] Closing connection...")
+			return
+		case _ = <-ticker.C:
+			sub.Add(1)
+			go SendMessage(c, &sub)
+		}
+	}
 }
 
 /*
@@ -135,17 +153,17 @@ Start runs the task specified in the arguments. Exits upon successfull completio
 Closes all open connections
 
 */
-func Start(ADDR string, CONN int64, JOBS int64) {
+func Start(ADDR string, CONN, JOBS int64, TTL time.Duration) {
 	var main sync.WaitGroup
-	conns := make(chan net.Conn, CONN)
+	conns = make(chan net.Conn, CONN)
 
-	QueueConns(conns, ADDR, cap(conns))
+	QueueConns(ADDR, cap(conns))
 
 	for i := 0; i < cap(conns); i++ {
 		conn, more := <-conns
 		if more {
 			main.Add(1)
-			go QueueJobs(&conn, JOBS, &main)
+			go QueueJobs(&conn, JOBS, TTL, &main)
 		} else {
 			log.Println("[INFO] Spawned all connections.")
 			close(conns)
@@ -153,6 +171,23 @@ func Start(ADDR string, CONN int64, JOBS int64) {
 		}
 	}
 	main.Wait()
-
 	log.Printf("[DEBUG] Program ended gracefully...\n")
+}
+
+/*
+
+GracefulAbort closes all the open connections if any and returns back end channel
+
+Listens to SIGTERM and SIGNINT to trigger process abortion
+
+*/
+func GracefulAbort() {
+	s := make(chan os.Signal, 1)
+	signal.Notify(s, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-s
+		fmt.Println("Process aborting... [Press Ctrl+C to force exit]")
+		close(conns)
+		os.Exit(0)
+	}()
 }
