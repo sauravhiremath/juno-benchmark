@@ -26,6 +26,7 @@ func main() {
 		&cli.StringFlag{
 			Name:        "socket-address",
 			Aliases:     []string{"s"},
+			Value:       "127.0.0.1:4000",
 			Usage:       "TCP v4 address to establish tcp connection",
 			Required:    true,
 			Destination: &ADDR,
@@ -33,7 +34,7 @@ func main() {
 		&cli.Int64Flag{
 			Name:        "connections",
 			Aliases:     []string{"c"},
-			Value:       1,
+			Value:       10,
 			Usage:       "Connections to keep open to the destination",
 			Required:    true,
 			Destination: &CONN,
@@ -41,7 +42,7 @@ func main() {
 		&cli.Int64Flag{
 			Name:        "rate",
 			Aliases:     []string{"r"},
-			Value:       1,
+			Value:       5,
 			Usage:       "Messages per second to send in a connection",
 			Required:    true,
 			Destination: &RATE,

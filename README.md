@@ -5,33 +5,15 @@ Perform load testing on GO to measure request-response latency for [juno](https:
 
 ## Get started
 
-* Start Juno on a TCPv4 server
+* Start Juno on a TCP4 server
 
-* Run the following juno test module, with flag `-s` with juno socket-address as `<host>:<port>`. <br>
-This servers as a module, juno-benchmark will call the function from.
-_[ This will be changed on next fix]_
+* Start `juno-benchmark` CLI.
 
-```javascript
-const minimist = require('minimist');
-const JunoModule = require('juno-node');
+## Example
 
-const argv = minimist(process.argv.slice(2));
-
-async function main() {
-    let module = await JunoModule.default(argv['s'] || argv['socket-location']);
-    await module.initialize('tester', '1.0.0');
-
-    const resp = await module.declareFunction('test', (arg) => { return '200 OK' });
-    console.log('Tester module test declared.');
-    console.log(JSON.stringify(resp));
-}
-
-main();
+```sh
+go run main.go -s 127.0.0.1:4000 -c 10 -r 10 -t 1m
 ```
-
-* Start `juno-benchmark` CLI. <br>
-Ex command: <br>
-`go run main.go -s 127.0.0.1:4000 -c 10 -r 10 -t 1m`
 
 ## Help
 
