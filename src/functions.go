@@ -9,7 +9,6 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -18,6 +17,7 @@ import (
 )
 
 var conns chan net.Conn
+var stats chan time.Duration
 
 /*
 
@@ -27,7 +27,6 @@ Sends the Marshaled register module request to Juno
 
 */
 func RegisterModule(c *net.Conn, sub *sync.WaitGroup) {
-	// Creates unique requestID and moduleID
 	defer sub.Done()
 
 	var i int = 0
@@ -41,7 +40,7 @@ func RegisterModule(c *net.Conn, sub *sync.WaitGroup) {
 	fmt.Fprintf(*c, string(iMsg)+"\n")
 	scanner := bufio.NewScanner(*c)
 	for scanner.Scan() {
-		log.Println("Initial message " + strconv.Itoa(i) + scanner.Text())
+		// log.Println("Initial message " + strconv.Itoa(i) + scanner.Text())
 		i++
 		if i > 1 {
 			break
@@ -78,7 +77,8 @@ func SendMessage(c *net.Conn, sub *sync.WaitGroup) {
 		log.Panic("[ERROR] Message recieve failed: ", err)
 		return
 	}
-	log.Println(time.Since(start))
+	// log.Println(time.Since(start))
+	stats <- time.Since(start)
 	return
 }
 
@@ -110,13 +110,13 @@ All messages are spawned concurrently and the function
 exists on getting successfull responses from all transmissions sent
 
 */
-func QueueJobs(c *net.Conn, n int64, TTL time.Duration, main *sync.WaitGroup) {
+func QueueJobs(c *net.Conn, rate int64, TTL time.Duration, main *sync.WaitGroup) {
 	defer main.Done()
 
 	var sub sync.WaitGroup
 	done := make(chan bool)
 
-	ticker := time.NewTicker(time.Duration(int64(time.Second) / n))
+	ticker := time.NewTicker(time.Duration(int64(time.Second) / rate))
 	defer ticker.Stop()
 
 	go func() {
@@ -140,10 +140,25 @@ func QueueJobs(c *net.Conn, n int64, TTL time.Duration, main *sync.WaitGroup) {
 
 /*
 
-RuntimeStats displays info on throughput and other memStats
+RuntimeStats displays info on latency and other memStats
+
+Returns:
+
+Current latency as time.Duration()
+Average latency in microseconds (µ)
 
 */
-func RuntimeStats() {
+func RuntimeStats(main *sync.WaitGroup) {
+	defer main.Done()
+
+	var avgLatency int64 = 0
+	var count int64 = 0
+
+	for latency := range stats {
+		fmt.Printf("Current Latency: %v  \t Average Latency: %v µs   \r", latency, avgLatency)
+		avgLatency = (avgLatency*count + latency.Microseconds()) / (count + 1)
+		count++
+	}
 }
 
 /*
@@ -153,9 +168,13 @@ Start runs the task specified in the arguments. Exits upon successfull completio
 Closes all open connections
 
 */
-func Start(ADDR string, CONN, JOBS int64, TTL time.Duration) {
+func Start(ADDR string, CONN, RATE int64, TTL time.Duration) {
 	var main sync.WaitGroup
 	conns = make(chan net.Conn, CONN)
+	stats = make(chan time.Duration)
+
+	main.Add(1)
+	go RuntimeStats(&main)
 
 	QueueConns(ADDR, cap(conns))
 
@@ -163,7 +182,7 @@ func Start(ADDR string, CONN, JOBS int64, TTL time.Duration) {
 		conn, more := <-conns
 		if more {
 			main.Add(1)
-			go QueueJobs(&conn, JOBS, TTL, &main)
+			go QueueJobs(&conn, RATE, TTL, &main)
 		} else {
 			log.Println("[INFO] Spawned all connections.")
 			close(conns)

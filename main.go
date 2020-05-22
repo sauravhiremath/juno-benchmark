@@ -14,15 +14,14 @@ func main() {
 	var (
 		ADDR   string
 		CONN   int64
-		JOBS   int64
+		RATE   int64
 		TTL, _ = time.ParseDuration("10s")
 	)
 
 	app := cli.NewApp()
 	app.Name = "juno-benchmark"
-	app.Usage = "TCP load generator for juno. Written in Go"
-	app.Description = "Benchmark throughputs for juno written in Go"
-	app.EnableBashCompletion = true
+	app.Usage = "Specify socket address and other parameters to start stress"
+	app.Description = "TCP load generator for juno. Written in Go"
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
 			Name:        "socket-address",
@@ -45,7 +44,7 @@ func main() {
 			Value:       1,
 			Usage:       "Messages per second to send in a connection",
 			Required:    true,
-			Destination: &JOBS,
+			Destination: &RATE,
 		},
 		&cli.DurationFlag{
 			Name:        "time",
@@ -57,7 +56,7 @@ func main() {
 		},
 	}
 	app.Action = func(c *cli.Context) error {
-		src.Start(ADDR, CONN, JOBS, TTL)
+		src.Start(ADDR, CONN, RATE, TTL)
 		go src.GracefulAbort()
 		return nil
 	}
