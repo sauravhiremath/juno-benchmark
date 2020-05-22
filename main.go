@@ -12,12 +12,11 @@ import (
 
 func main() {
 	var (
-		ADDR string
-		CONN int64
-		JOBS int64
+		ADDR   string
+		CONN   int64
+		JOBS   int64
+		TTL, _ = time.ParseDuration("10s")
 	)
-
-	TTL, _ := time.ParseDuration("10s")
 
 	app := cli.NewApp()
 	app.Name = "juno-benchmark"
